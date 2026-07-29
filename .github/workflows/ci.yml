@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: genvm-lint check contracts/release_proof.py
+      - run: genvm-lint lint contracts/release_proof.py
 
   test-direct:
     name: Direct Mode Tests
@@ -27,4 +27,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: pytest tests/direct/test_release_proof.py -v
+      - run: pytest tests/direct tests/operator -v

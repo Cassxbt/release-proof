@@ -1,69 +1,123 @@
 # ReleaseProof
 
-ReleaseProof is a GenLayer release-acceptance gate for public, immutable GitHub evidence.
+ReleaseProof is a GenLayer release-acceptance service for immutable GitHub evidence. It records whether release notes accurately describe a cited source artifact under a maintainer-owned policy.
 
-It answers one narrow question: **do these SHA-pinned release notes accurately describe this SHA-pinned source artifact under a registered policy?** The result is recorded on GenLayer as `ACCEPT`, `REJECT`, or `INDETERMINATE`.
+The contract stores only one of three outcomes:
 
-ReleaseProof is not a code-security audit, legal/compliance review, production-readiness guarantee, payment processor, or wallet-control system. It never executes an external-chain action.
+- `ACCEPT`: the required marker exists and independent validators agree that the notes match the evidence.
+- `REJECT`: the required marker is absent or validators agree on a clear mismatch.
+- `INDETERMINATE`: the model response is malformed or the evidence cannot be retrieved.
+
+It is not a security audit, compliance attestation, deployment authority, payment system, or wallet controller. It cannot execute submitted code or act on another chain.
 
 ## Why GenLayer
 
-Release metadata has a deterministic core and a qualitative edge:
-
-- deterministic guards bind every evaluation to a repository, a full 40-character commit SHA, two immutable `raw.githubusercontent.com` URLs, a required marker, and a unique request ID;
-- GenLayer validators independently fetch the same immutable evidence and independently derive the limited classification; and
-- only stable decision fields are compared before state changes.
-
-This is deliberately not an "AI decides whether code is good" demo. The model sees bounded, untrusted source excerpts and judges only whether the notes faithfully describe the cited change. Missing, malformed, mutable, unavailable, or ambiguous evidence fails closed to `INDETERMINATE` or `REJECT`.
-
-## Workflow
+Release metadata has a deterministic core and a qualitative edge. ReleaseProof uses deterministic checks to bind a request to a repository, full 40-character commit SHA, and two immutable GitHub raw-content URLs. It then uses GenLayer's custom equivalence flow to let validators independently retrieve the evidence and classify the narrow notes-to-source question before state changes.
 
 ```mermaid
 flowchart LR
-  A[Maintainer creates policy] --> B[Contributor submits SHA-pinned source + notes]
-  B --> C[Leader fetches and classifies]
-  B --> D[Validators independently refetch and classify]
-  C --> E{Stable fields agree?}
+  A[Maintainer creates policy] --> B[Maintainer submits SHA-pinned evidence]
+  B --> C[Leader derives a compact decision]
+  B --> D[Validators independently derive a decision]
+  C --> E{All decision fields agree?}
   D --> E
-  E -- no --> F[No state mutation]
-  E -- yes --> G[Store ACCEPT / REJECT / INDETERMINATE]
+  E -- no --> F[Transaction is undetermined]
+  E -- yes --> G[Store decision]
 ```
 
-## Contract guarantees
+## Security properties
 
-- Accepts only `raw.githubusercontent.com/<owner>/<repo>/<40-char-sha>/<path>` evidence URLs with no query or fragment.
-- Rejects duplicate policies and duplicate request IDs.
-- Limits URL, policy, identifier, and fetched-artifact sizes.
-- Treats web/LLM failures as `INDETERMINATE`, never `ACCEPT`.
-- Uses GenLayer's `strict_eq` equivalence principle over the normalized decision fields, never raw page text or model prose.
-- Stores compact metadata only: policy/version, request ID, SHA, evidence URLs, decision, and consensus fields.
+- Only the deploying wallet can create policies or submit evaluations.
+- Each policy is bound to one repository and cannot be overwritten.
+- Decision records are scoped by policy ID and request ID, preventing cross-policy collisions.
+- Evidence must be two distinct SHA-pinned `raw.githubusercontent.com` URLs for the registered repository.
+- URLs with query strings, fragments, percent encoding, path traversal, or unsupported path characters are rejected.
+- Web and model failures resolve to `INDETERMINATE`; they cannot become `ACCEPT`.
+- A missing required marker resolves to `REJECT` before an LLM request is made.
+- Validators compare only a canonical JSON object containing `decision`, `hard_check_passed`, and `notes_match`. Raw artifacts and model prose are never written to contract storage.
 
-## Threat model and limitations
+Evidence remains untrusted input. JSON encoding and a fixed prompt reduce prompt-injection exposure, but no LLM classifier can make arbitrary text trustworthy. The policy owner remains responsible for choosing an appropriate repository and rule.
 
-The policy owner selects the trusted repository and release rule. GitHub availability, the configured model, and GenLayer consensus remain dependencies. The contract does not inspect arbitrary web pages, follow mutable branch/tag URLs, execute submitted code, verify CI services, hold funds, or make a release safe.
+## Operator client
 
-Artifact text is untrusted. The classifier prompt isolates it in data delimiters, uses a fixed JSON schema, and tests an injection-shaped artifact; this reduces risk but cannot turn arbitrary text into trusted instructions.
-
-## Local validation
+The Python operator client is the application layer. It sends real Bradbury contract calls, waits for an accepted receipt, returns an Explorer transaction link, and reads the stored decision.
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m pytest tests/direct/test_release_proof.py -v
-.venv/bin/genvm-lint check contracts/release_proof.py
+cp .env.example .env
+# Set RELEASE_PROOF_ADDRESS and RELEASE_PROOF_PRIVATE_KEY in .env locally.
+set -a && source .env && set +a
+
+.venv/bin/python scripts/release_proof.py create-policy \
+  release-proof-v1 Cassxbt release-proof Migration \
+  "Release notes must accurately describe the source artifact's observable change."
 ```
 
-The direct suite covers the acceptance path, deterministic rejection, malformed model output, prompt-injection-shaped evidence, SHA/host enforcement, and replay prevention. The validator-disagreement case is an explicit expected failure because the direct runner does not emulate the sandbox used by `strict_eq`.
+The private key is read from the local environment only. Do not paste it into a terminal transcript, commit it, or share it with an agent.
 
-Before a Builder submission, run the validator-disagreement case on Studio or testnet, then deploy to Bradbury. The evidence package should include the public repository, deployed contract address, deployment transaction, accepted and rejected interaction transactions, and a short demo. This repository intentionally does not ship a hosted frontend until its dependency chain can pass a clean audit.
+After deployment, submit the controlled fixtures from commit `74b3e136f85d92ebe48465b0d259d6eaebc758ff`:
 
-## Project structure
+```bash
+SHA=74b3e136f85d92ebe48465b0d259d6eaebc758ff
+ROOT=https://raw.githubusercontent.com/Cassxbt/release-proof/$SHA/fixtures
 
+.venv/bin/python scripts/release_proof.py evaluate \
+  release-proof-v1 accepted-v1 $SHA \
+  "$ROOT/accepted/SOURCE.md" "$ROOT/accepted/RELEASE.md"
+
+.venv/bin/python scripts/release_proof.py evaluate \
+  release-proof-v1 rejected-v1 $SHA \
+  "$ROOT/rejected/SOURCE.md" "$ROOT/rejected/RELEASE.md"
+
+.venv/bin/python scripts/release_proof.py get-decision release-proof-v1 accepted-v1
 ```
-contracts/release_proof.py        GenLayer intelligent contract
-tests/direct/test_release_proof.py Fast mocked consensus tests
-deploy/deployScript.ts            Contract deployment entry point
-fixtures/                         Controlled accepted and rejected evidence
+
+## Validation
+
+```bash
+.venv/bin/genvm-lint lint contracts/release_proof.py
+.venv/bin/pytest tests/direct tests/operator -v
+```
+
+The direct suite covers owner authorization, immutable URL enforcement, accepted and rejected paths, malformed model output, prompt-injection-shaped evidence, replay prevention, and validator disagreement. The operator suite verifies the client-to-contract interface without a wallet or network call.
+
+Run the integration suite with GenLayer Studio before testnet deployment. It uses the public SHA-pinned fixtures for one accepted and one rejected result:
+
+```bash
+npm install -g genlayer
+genlayer init
+genlayer up
+.venv/bin/gltest tests/integration -v -s --network localnet
+```
+
+Deploy only after the Studio run passes. Bradbury is the final public-evidence environment:
+
+```bash
+genlayer network testnet-bradbury
+genlayer deploy --contract contracts/release_proof.py
+```
+
+## Submission evidence
+
+A Builder Project submission should include:
+
+1. This public repository.
+2. The deployed Bradbury contract and deployment transaction.
+3. The operator-client transactions for policy creation, an accepted fixture, and a rejected fixture.
+4. Explorer links and the client output for both stored decisions.
+5. A short screen recording of the command flow.
+
+## Repository layout
+
+```text
+backend/release_proof_client.py  Bradbury operator client
+contracts/release_proof.py       GenLayer intelligent contract
+fixtures/                        Controlled SHA-pinned evidence
+scripts/release_proof.py         Operator command-line entry point
+tests/direct/                    Fast mocked contract tests
+tests/integration/               Studio consensus test
+tests/operator/                  Client interface tests
 ```
 
 ## License

@@ -9,7 +9,7 @@
 *.sln
 *.sw?
 .env
-node_modules
+node_modules/
 # Python bytecode
 __pycache__/
 *.pyc
@@ -17,4 +17,3 @@ __pycache__/
 *.pyd
 /context
 *.compiled.js
-package-lock.json

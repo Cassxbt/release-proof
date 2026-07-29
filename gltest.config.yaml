@@ -6,6 +6,9 @@ networks:
 
   studionet: {}
 
+  testnet_bradbury:
+    url: "https://rpc-bradbury.genlayer.com"
+
 paths:
   contracts: "contracts"
 
