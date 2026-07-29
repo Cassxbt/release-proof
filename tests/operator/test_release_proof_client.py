@@ -1,12 +1,19 @@
+import pytest
+
 from backend.release_proof_client import ReleaseProofOperator
+from genlayer_py.types import TransactionStatus
 
 
 ADDRESS = "0x0000000000000000000000000000000000000001"
 
 
 class FakeClient:
-    def __init__(self):
+    def __init__(self, receipt=None):
         self.writes = []
+        self.receipt = receipt or {
+            "status_name": TransactionStatus.ACCEPTED,
+            "tx_execution_result_name": "FINISHED_WITH_RETURN",
+        }
 
     def read_contract(self, **kwargs):
         assert kwargs["function_name"] == "get_decision"
@@ -19,7 +26,7 @@ class FakeClient:
     def wait_for_transaction_receipt(self, transaction_hash, status):
         assert transaction_hash == "0xabc"
         assert status.value == "ACCEPTED"
-        return {"tx_execution_result_name": "FINISHED_WITH_RETURN"}
+        return self.receipt
 
 
 def test_create_policy_submits_contract_arguments_and_returns_evidence_link():
@@ -56,3 +63,32 @@ def test_evaluate_and_read_decision_use_the_contract_interface():
         "decision": "ACCEPT",
         "request_id": "accepted-v1",
     }
+
+
+@pytest.mark.parametrize(
+    ("receipt", "message"),
+    [
+        (
+            {
+                "status_name": TransactionStatus.UNDETERMINED,
+                "tx_execution_result_name": "FINISHED_WITH_RETURN",
+            },
+            "Transaction was not accepted",
+        ),
+        (
+            {"status_name": TransactionStatus.ACCEPTED},
+            "Contract execution failed",
+        ),
+    ],
+)
+def test_write_requires_an_accepted_transaction_with_a_return(receipt, message):
+    operator = ReleaseProofOperator(FakeClient(receipt), ADDRESS)
+
+    with pytest.raises(RuntimeError, match=message):
+        operator.create_policy(
+            "release-proof-v1",
+            "Cassxbt",
+            "release-proof",
+            "Migration",
+            "Release notes must accurately describe the observable source change.",
+        )

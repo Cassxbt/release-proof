@@ -104,9 +104,13 @@ class ReleaseProofOperator:
         receipt = self._client.wait_for_transaction_receipt(
             transaction_hash, status=TransactionStatus.ACCEPTED
         )
+        status = receipt.get("status_name")
+        status_name = getattr(status, "value", status)
+        if status_name != TransactionStatus.ACCEPTED.value:
+            raise RuntimeError(f"Transaction was not accepted: {status_name}")
         execution_result = receipt.get("tx_execution_result_name")
         execution_name = getattr(execution_result, "value", execution_result)
-        if execution_name not in (None, "FINISHED_WITH_RETURN"):
+        if execution_name != "FINISHED_WITH_RETURN":
             raise RuntimeError(f"Contract execution failed: {execution_name}")
         return OperationResult(transaction_hash=str(transaction_hash), receipt=receipt)
 

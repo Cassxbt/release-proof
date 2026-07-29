@@ -51,8 +51,11 @@ class ReleaseProof(gl.Contract):
         if not url.startswith(expected_prefix) or "?" in url or "#" in url:
             return False
         relative_path = url[len(expected_prefix) :]
+        path_segments = relative_path.split("/")
         return bool(relative_path) and all(
-            char.isalnum() or char in "/._-" for char in relative_path
+            segment not in {"", ".", ".."}
+            and all(char.isalnum() or char in "._-" for char in segment)
+            for segment in path_segments
         )
 
     def _decision_key(self, policy_id: str, request_id: str) -> str:

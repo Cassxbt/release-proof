@@ -88,6 +88,20 @@ def test_rejects_mutable_or_untrusted_evidence_before_web_access(
         )
 
 
+def test_rejects_github_urls_with_path_traversal_segments(direct_vm, direct_deploy):
+    contract = direct_deploy(CONTRACT_PATH)
+    _create_policy(contract)
+
+    with direct_vm.expect_revert("Evidence must use SHA-pinned raw GitHub URLs"):
+        contract.evaluate_release(
+            "policy-v1",
+            "request-path-traversal",
+            SHA,
+            SOURCE_URL.replace("fixtures/accepted", "fixtures/accepted/../accepted"),
+            NOTES_URL,
+        )
+
+
 def test_accepts_matching_release_and_stores_compact_decision(
     direct_vm, direct_deploy
 ):

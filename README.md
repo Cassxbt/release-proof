@@ -1,12 +1,12 @@
 # ReleaseProof
 
-ReleaseProof is a GenLayer release-acceptance service for immutable GitHub evidence. It records whether release notes accurately describe a cited source artifact under a maintainer-owned policy.
+ReleaseProof is a GenLayer release-acceptance service for immutable GitHub evidence. It records whether release notes accurately describe a cited source artifact under a contract-owner-controlled policy.
 
 The contract stores only one of three outcomes:
 
 - `ACCEPT`: the required marker exists and independent validators agree that the notes match the evidence.
 - `REJECT`: the required marker is absent or validators agree on a clear mismatch.
-- `INDETERMINATE`: the model response is malformed or the evidence cannot be retrieved.
+- `INDETERMINATE`: all consensus participants normalize malformed model output or unavailable evidence to the same fail-closed result.
 
 It is not a security audit, compliance attestation, deployment authority, payment system, or wallet controller. It cannot execute submitted code or act on another chain.
 
@@ -16,7 +16,7 @@ Release metadata has a deterministic core and a qualitative edge. ReleaseProof u
 
 ```mermaid
 flowchart LR
-  A[Maintainer creates policy] --> B[Maintainer submits SHA-pinned evidence]
+  A[Contract owner creates policy] --> B[Contract owner submits SHA-pinned evidence]
   B --> C[Leader derives a compact decision]
   B --> D[Validators independently derive a decision]
   C --> E{All decision fields agree?}
@@ -32,7 +32,7 @@ flowchart LR
 - Decision records are scoped by policy ID and request ID, preventing cross-policy collisions.
 - Evidence must be two distinct SHA-pinned `raw.githubusercontent.com` URLs for the registered repository.
 - URLs with query strings, fragments, percent encoding, path traversal, or unsupported path characters are rejected.
-- Web and model failures resolve to `INDETERMINATE`; they cannot become `ACCEPT`.
+- Web and model failures cannot become `ACCEPT`. Matching fail-closed results store `INDETERMINATE`; divergent results make the transaction undetermined and store nothing.
 - A missing required marker resolves to `REJECT` before an LLM request is made.
 - Validators compare only a canonical JSON object containing `decision`, `hard_check_passed`, and `notes_match`. Raw artifacts and model prose are never written to contract storage.
 
