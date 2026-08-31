@@ -108,6 +108,18 @@ A Builder Project submission should include:
 4. Explorer links and the client output for both stored decisions.
 5. A short screen recording of the command flow.
 
+### Studio validation
+
+The contract was validated in GenLayer Studio using Normal full consensus:
+
+- Contract: `0x9cB79Ef2a8123A28e05399c7bEd75eD85e0a70B6`
+- Deployment transaction: `0x29add50bde39606d695b81d55c3a5218f572226388a4aa19b980b0dca49c659b`
+- Policy transaction: `0x2e13e03cf9eddf17b784f46c345e1359f6c960d4428161160d8726a686272362`
+- Rejected fixture transaction: `0x9f173d8b636a834d55b9972c941f33fe368e94cb12f51066ca8f84608e6b8d2a`
+- Accepted fixture transaction: `0xefbd5ae91f3ba7f94219043d645e7adadf956b044ffbd4bc70e40aa95cce881c`
+
+The rejected fixture stored `REJECT` with both checks false. The accepted fixture stored `ACCEPT` with both checks true. Both decisions reference commit `74b3e136f85d92ebe48465b0d259d6eaebc758ff`.
+
 ## Repository layout
 
 ```text
