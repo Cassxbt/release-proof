@@ -1,0 +1,75 @@
+name: Verify ReleaseProof decision
+
+on:
+  workflow_dispatch:
+    inputs:
+      contract_address:
+        description: Bradbury ReleaseProof contract address
+        required: true
+        type: string
+      policy_id:
+        description: Immutable policy ID
+        required: true
+        type: string
+      request_id:
+        description: Evaluation request ID
+        required: true
+        type: string
+      commit_sha:
+        description: Full lowercase commit SHA
+        required: true
+        type: string
+      source_url:
+        description: SHA-pinned raw source URL
+        required: true
+        type: string
+      release_notes_url:
+        description: SHA-pinned raw release-notes URL
+        required: true
+        type: string
+      repo_owner:
+        description: Policy repository owner
+        required: true
+        type: string
+      repo_name:
+        description: Policy repository name
+        required: true
+        type: string
+      transaction_hash:
+        description: Evaluation transaction hash; the verifier requires finalization
+        required: true
+        type: string
+
+jobs:
+  verify:
+    name: Verify finalized ACCEPT
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Verify contract state without a wallet key
+        env:
+          RELEASE_PROOF_ADDRESS: ${{ inputs.contract_address }}
+          RELEASE_PROOF_POLICY_ID: ${{ inputs.policy_id }}
+          RELEASE_PROOF_REQUEST_ID: ${{ inputs.request_id }}
+          RELEASE_PROOF_COMMIT_SHA: ${{ inputs.commit_sha }}
+          RELEASE_PROOF_SOURCE_URL: ${{ inputs.source_url }}
+          RELEASE_PROOF_RELEASE_NOTES_URL: ${{ inputs.release_notes_url }}
+          RELEASE_PROOF_REPO_OWNER: ${{ inputs.repo_owner }}
+          RELEASE_PROOF_REPO_NAME: ${{ inputs.repo_name }}
+          RELEASE_PROOF_TX_HASH: ${{ inputs.transaction_hash }}
+        run: |
+          python scripts/release_gate_verify.py \
+            "$RELEASE_PROOF_POLICY_ID" \
+            "$RELEASE_PROOF_REQUEST_ID" \
+            "$RELEASE_PROOF_COMMIT_SHA" \
+            "$RELEASE_PROOF_SOURCE_URL" \
+            "$RELEASE_PROOF_RELEASE_NOTES_URL" \
+            "$RELEASE_PROOF_REPO_OWNER" \
+            "$RELEASE_PROOF_REPO_NAME" \
+            --tx-hash "$RELEASE_PROOF_TX_HASH"

@@ -56,6 +56,20 @@ set -a && source .env && set +a
 
 The private key is read from the local environment only. Do not paste it into a terminal transcript, commit it, or share it with an agent.
 
+## ReleaseProof Gate console and keyless verifier
+
+The `frontend/` directory contains the owner-only Bradbury browser console. It uses `genlayer-js@1.1.8`, keeps wallet signing in the connected browser, and does not handle private keys. Configure `VITE_CONTRACT_ADDRESS` with a Bradbury deployment before starting it:
+
+```bash
+cd frontend
+cp .env.example .env
+# Set VITE_CONTRACT_ADDRESS in .env
+npm ci
+npm run dev
+```
+
+The read-only verifier in `scripts/release_gate_verify.py` checks the policy and decision directly and requires no private key. The manual GitHub Actions workflow `.github/workflows/release-proof-verify.yml` runs the same check and fails unless it sees a finalized `ACCEPT` bound to the expected policy, repository, commit, and URLs. It does not evaluate releases or deploy anything.
+
 After deployment, submit the controlled fixtures from commit `74b3e136f85d92ebe48465b0d259d6eaebc758ff`:
 
 ```bash
