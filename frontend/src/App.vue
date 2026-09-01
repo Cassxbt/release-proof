@@ -102,14 +102,6 @@ async function handleCreatePolicy() {
     error.value = errors.join(" ");
     return;
   }
-  if (
-    policy.value &&
-    policyForm.value.policyId === evidenceForm.value.policyId &&
-    (policy.value.repo_owner !== evidenceForm.value.repoOwner || policy.value.repo_name !== evidenceForm.value.repoName)
-  ) {
-    error.value = "The evidence repository does not match the loaded policy.";
-    return;
-  }
   if (!walletAddress.value) {
     error.value = "Connect the deploying wallet before creating a policy.";
     return;
@@ -161,6 +153,13 @@ async function handleEvaluate() {
   }
   if (!evidenceUrls.value) {
     error.value = "Complete the repository and commit fields first.";
+    return;
+  }
+  if (
+    policy.value &&
+    (policy.value.repo_owner !== evidenceForm.value.repoOwner || policy.value.repo_name !== evidenceForm.value.repoName)
+  ) {
+    error.value = "The evidence repository does not match the loaded policy.";
     return;
   }
   busy.value = true;
